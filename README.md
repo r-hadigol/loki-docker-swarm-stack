@@ -18,6 +18,9 @@ The main goals of this project are:
 ·	Clean up Loki labels to make Grafana Explore easier to use.
 ·	Prepare the stack for future improvements such as authentication, HA Gateway, and deeper monitoring.
 
+![Loki Docker Swarm Architecture](image.png)
+
+
 Current Architecture
 Docker Nodes
 Node	Hostname	IP Address	Swarm Role	Main Label
