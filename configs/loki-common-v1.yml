@@ -1,0 +1,58 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+
+common:
+  path_prefix: /loki
+  compactor_grpc_address: loki-compactor:9095
+  storage:
+    s3:
+      bucketnames: loki-data
+      endpoint: 192.168.28.1:9000
+      access_key_id: admin
+      secret_access_key: admin123456
+      insecure: true
+      s3forcepathstyle: true
+  ring:
+    kvstore:
+      store: consul
+      consul:
+        host: 192.168.28.137:8500
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+ingester:
+  lifecycler:
+    ring:
+      replication_factor: 3
+      kvstore:
+        store: consul
+        consul:
+          host: 192.168.28.137:8500
+
+frontend:
+  scheduler_address: loki-query-scheduler:9095
+
+frontend_worker:
+  scheduler_address: loki-query-scheduler:9095
+
+query_scheduler:
+  max_outstanding_requests_per_tenant: 32768
+
+compactor:
+  working_directory: /loki/compactor
+  compactor_ring:
+    kvstore:
+      store: consul
+      consul:
+        host: 192.168.28.137:8500
