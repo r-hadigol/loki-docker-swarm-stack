@@ -1,0 +1,304 @@
+version: "3.8"
+
+configs:
+  loki_common_config_1777291967:
+    file: ./configs/loki-common-v1.yml
+  loki_gateway_config_1777293493:
+    file: ./configs/loki-gateway-split-v1.conf
+  alloy_config_1777298541:
+    file: ./configs/alloy-config.alloy
+
+volumes:
+  loki_index_gateway_1_data:
+  loki_index_gateway_2_data:
+  loki_ingester_1_data:
+  loki_ingester_2_data:
+  loki_ingester_3_data:
+  minio_data:
+  grafana_data:
+  loki_compactor_data:
+  loki_index_gateway_data:
+
+services:
+  consul:
+    image: docker.arvancloud.ir/consul:1.15.4
+    command: agent -server -bootstrap-expect=1 -client=0.0.0.0 -bind=0.0.0.0 -advertise=192.168.28.137 -data-dir=/consul/data -ui
+    ports:
+      - target: 8500
+        published: 8500
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == backend
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123456
+    volumes:
+      - minio_data:/data
+    ports:
+      - target: 9000
+        published: 9000
+        protocol: tcp
+        mode: host
+      - target: 9001
+        published: 9001
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == main
+
+  loki-distributor-1:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=distributor
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    ports:
+      - target: 3100
+        published: 3101
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == write
+
+  loki-distributor-2:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=distributor
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    ports:
+      - target: 3100
+        published: 3102
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == write
+
+  loki-distributor-3:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=distributor
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    ports:
+      - target: 3100
+        published: 3103
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == write
+
+  loki-ingester-1:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=ingester
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    volumes:
+      - loki_ingester_1_data:/loki
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == write
+
+  loki-ingester-2:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=ingester
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    volumes:
+      - loki_ingester_2_data:/loki
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == write
+
+  loki-ingester-3:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=ingester
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    volumes:
+      - loki_ingester_3_data:/loki
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == write
+
+  loki-query-scheduler:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=query-scheduler
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.labels.loki.role == backend
+
+  loki-query-frontend-1:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=query-frontend
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    ports:
+      - target: 3100
+        published: 3201
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == read
+
+  loki-query-frontend-2:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=query-frontend
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    ports:
+      - target: 3100
+        published: 3202
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == read
+
+  loki-querier:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=querier
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.labels.loki.role == read
+
+  loki-index-gateway-1:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=index-gateway
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    volumes:
+      - loki_index_gateway_1_data:/loki
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == backend
+
+  loki-index-gateway-2:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=index-gateway
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    volumes:
+      - loki_index_gateway_2_data:/loki
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == backend
+
+  loki-compactor:
+    image: grafana/loki:2.9.10
+    command: -config.file=/etc/loki/loki-config.yml -target=compactor
+    configs:
+      - source: loki_common_config_1777291967
+        target: /etc/loki/loki-config.yml
+    volumes:
+      - loki_compactor_data:/loki
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == backend
+
+  loki-gateway:
+    image: nginx:latest
+    configs:
+      - source: loki_gateway_config_1777293493
+        target: /etc/nginx/nginx.conf
+    ports:
+      - target: 3100
+        published: 3100
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == main
+
+  alloy:
+    image: grafana/alloy:latest
+    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    configs:
+      - source: alloy_config_1777298541
+        target: /etc/alloy/config.alloy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - target: 12345
+        published: 12345
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == main
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.loki.role == main
