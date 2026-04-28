@@ -1,0 +1,17 @@
+*.bak
+*.backup
+*.tmp
+*.log
+
+.env
+secrets/
+
+data/
+minio-data/
+grafana-data/
+
+.DS_Store
+.idea/
+.vscode/
+
+__pycache__/
